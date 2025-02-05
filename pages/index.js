@@ -1,114 +1,144 @@
-import Image from "next/image";
-import { Geist, Geist_Mono } from "next/font/google";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import { useState, useEffect } from 'react';
+import FileUpload from '@/component/FileUpload';
+import PDFViewer from '@/component/PDFViewer';
+import OpenPDFLink from '@/component/OpenPdfLink';
+import { uploadPDF } from '@/axios/axios';
+import ChatModal from '@/component/ChatModel';
 
 export default function Home() {
-  return (
-    <div
-      className={`${geistSans.variable} ${geistMono.variable} grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]`}
-    >
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              pages/index.js
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [file, setFile] = useState(null);
+  const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [responseMessage, setResponseMessage] = useState("");
+  const [fileURL, setFileURL] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+  useEffect(() => {
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setFileURL(url);
+      return () => URL.revokeObjectURL(url);
+    }
+  }, [file]);
+
+  const handleFileChange = (e) => {
+    const uploadedFile = e.target.files[0];
+    if (uploadedFile && uploadedFile.type === 'application/pdf') {
+      setFile(uploadedFile);
+    } else {
+      alert("Please upload a PDF file.");
+    }
+  };
+
+  const handleNameChange = (e) => {
+    setName(e.target.value);
+  };
+
+  const handleSubmit = async () => {
+    if (!file || !name) {
+      alert("Please upload a PDF file and enter your name.");
+      return;
+    }
+
+    setLoading(true);
+
+    const promptData = { prompt: name };
+
+    try {
+      const response = await uploadPDF(file, promptData);
+
+      if (response && response.response) {
+        setResponseMessage(response.response);
+
+        setChatMessages((prevMessages) => [
+          ...prevMessages,
+          { text: name, sender: 'user' },
+          { text: response.response, sender: 'system' }
+        ]);
+      } else {
+        console.error("API response structure is invalid:", response);
+        setResponseMessage("Error: Invalid response from API.");
+      }
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      setResponseMessage("Error uploading file.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startChat = () => {
+    setModalOpen(true);
+  };
+
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="max-w-xl w-full flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-lg">
+        {!file ? (
+          <FileUpload handleFileChange={handleFileChange} />
+        ) : (
+          <>
+            <PDFViewer file={fileURL} />
+            {!responseMessage && !modalOpen && (
+              <div className="w-full flex flex-col items-center space-y-4">
+                <label className="form-control items-center mt-3 mb-3 w-full" >
+                  <span className="label-text">What do you want to ask?</span>
+                  <input
+                    type="text"
+                    placeholder="Type here"
+                    className="input input-bordered w-full"
+                    value={name}
+                    onChange={handleNameChange}
+                  />
+                </label>
+                <button
+                  className="btn btn-primary w-full max-w-xs"
+                  onClick={handleSubmit}
+                  disabled={loading}
+                >
+                  {loading ? "Uploading..." : "Start"}
+                </button>
+              </div>
+            )}
+
+            <OpenPDFLink openPDFInNewWindow={() => window.open(fileURL, '_blank', 'fullscreen=yes')} />
+          </>
+        )}
+
+        {responseMessage && !modalOpen && (
+          <div className="w-full flex flex-col items-center space-y-4">
+            <div role="alert" class="alert shadow-lg">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                class="stroke-info h-6 w-6 shrink-0">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              <div>
+                <h3 class="font-bold">Aİ Message!</h3>
+                <div class="text-xs text-success">{responseMessage}</div>
+              </div>
+            </div>
+            <button className="btn btn-success" onClick={startChat}>
+              Start Chat
+            </button>
+          </div>
+        )}
+
+        {modalOpen && (
+          <ChatModal
+            file={file}
+            initialMessages={chatMessages}
+            closeModal={() => setModalOpen(false)}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        )}
+      </div>
     </div>
   );
 }

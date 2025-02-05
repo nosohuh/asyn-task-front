@@ -13,5 +13,12 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    require("daisyui"), // Burada daisyUI eklendi
+  ],
+  daisyui: {
+    themes: [
+      "luxury"
+    ],
+  },
 };
