@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+.hidden-input {
+  display: none; /* Inputu tamamen gizler */
+}
+
 /* Modal */
 .modal {
   display: flex;
